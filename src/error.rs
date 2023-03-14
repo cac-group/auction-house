@@ -8,5 +8,4 @@ pub enum ContractError {
 
     #[error("Not enough funds")]
     Example,
-
 }

@@ -1,4 +1,3 @@
-
 use cw_storage_plus::Item;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -7,7 +6,6 @@ use cosmwasm_std::{Addr, Coin, Timestamp};
 
 //Auction structure
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-
 pub struct Auction {
     pub nft: String,
     pub current_bid: Coin,

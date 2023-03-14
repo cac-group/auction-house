@@ -15,22 +15,27 @@ pub fn instantiate(deps: DepsMut, sender: Addr) -> StdResult<Response> {
 
     AUCTIONS.save(deps.storage, &Vec::new())?;
 
-    let resp = Response::new().add_attribute("action", "Instantiating Action House").add_attribute("Owner", sender);
+    let resp = Response::new()
+        .add_attribute("action", "Instantiating Action House")
+        .add_attribute("Owner", sender);
 
     Ok(resp)
 }
 
-pub mod query{
-    use cosmwasm_std::{StdResult, Deps};
+pub mod query {
+    use cosmwasm_std::{Deps, StdResult};
 
-    use crate::{state::AUCTIONS, msg::OpenAuctionsResp};
+    use crate::{msg::OpenAuctionsResp, state::AUCTIONS};
 
-
+    //We return the current auctions that are still open and/or unclaimed.
     pub fn open_auctions(deps: Deps) -> StdResult<OpenAuctionsResp> {
         let auctions = AUCTIONS.load(deps.storage)?;
 
-        Ok(OpenAuctionsResp {
-            auctions,
-        })
+        Ok(OpenAuctionsResp { auctions })
     }
+}
+
+pub mod exec {
+
+    
 }

@@ -1,11 +1,11 @@
-use cosmwasm_std::{DepsMut, Env, MessageInfo, StdResult, Response, to_binary, Deps, Binary};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
+use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 use msg::InstantiateMsg;
 
 mod contract;
-pub mod msg;
 pub mod error;
+pub mod msg;
 mod state;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
