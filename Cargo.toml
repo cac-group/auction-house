@@ -17,6 +17,7 @@ tests = ["library", "cw-multi-test"]
 
 
 [dependencies]
+archway-bindings = { git = "https://github.com/archway-network/archway-bindings.git" }
 cosmwasm-schema = "1.2.2"
 cosmwasm-std = "1.2.2"
 cw-multi-test = { version = "0.16.2", optional = true }

@@ -23,6 +23,7 @@ pub fn instantiate(deps: DepsMut, sender: Addr) -> StdResult<Response> {
 }
 
 pub mod query {
+    use archway_bindings::ArchwayQuery;
     use cosmwasm_std::{Deps, StdResult};
 
     use crate::{msg::OpenAuctionsResp, state::AUCTIONS};
@@ -33,9 +34,9 @@ pub mod query {
 
         Ok(OpenAuctionsResp { auctions })
     }
+
+    pub fn contract_metadata(deps: Deps<ArchwayQuery>) {
+    }
 }
 
-pub mod exec {
-
-    
-}
+pub mod exec {}

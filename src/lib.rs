@@ -25,5 +25,6 @@ pub fn query(deps: Deps, _env: Env, msg: msg::QueryMsg) -> StdResult<Binary> {
 
     match msg {
         OpenAuctions {} => to_binary(&query::open_auctions(deps)?),
+        Metadata { contract_address } => todo!(),
     }
 }
