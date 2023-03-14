@@ -1,4 +1,4 @@
-use cosmwasm_std::{DepsMut, Env, MessageInfo, StdResult, Response};
+use cosmwasm_std::{DepsMut, Env, MessageInfo, StdResult, Response, to_binary, Deps, Binary};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use msg::InstantiateMsg;
@@ -16,4 +16,14 @@ pub fn instantiate(
     _msg: InstantiateMsg,
 ) -> StdResult<Response> {
     contract::instantiate(deps, info.sender)
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn query(deps: Deps, _env: Env, msg: msg::QueryMsg) -> StdResult<Binary> {
+    use contract::query;
+    use msg::QueryMsg::*;
+
+    match msg {
+        OpenAuctions {} => to_binary(&query::open_auctions(deps)?),
+    }
 }

@@ -2,17 +2,19 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_schema::QueryResponses;
 use cosmwasm_std::{CustomMsg, CosmosMsg};
 
+use crate::state::Auction;
+
 #[cw_serde]
 #[derive(QueryResponses)]
 //We will receive all auctions that are still open/unclaimed
 pub enum QueryMsg {
-    #[returns(OpenResp)]
+    #[returns(OpenAuctionsResp)]
     OpenAuctions {},
 }
 
 #[cw_serde]
-pub struct OpenResp {
-    pub todo: i32,
+pub struct OpenAuctionsResp {
+    pub auctions: Vec<Auction>,
 }
 
 #[cw_serde]
@@ -54,6 +56,7 @@ impl ArchwayMsg {
         }
     }
 
+    //We will use this one with limit=0 aka no limit
     pub fn withdraw_rewards_by_limit(limit: u64) -> Self {
         ArchwayMsg::WithdrawRewards {
             records_limit: Some(limit),
@@ -61,6 +64,7 @@ impl ArchwayMsg {
         }
     }
 
+    //We don't use this one.
     pub fn withdraw_rewards_by_ids(record_ids: Vec<u64>) -> Self {
         ArchwayMsg::WithdrawRewards {
             records_limit: None,
