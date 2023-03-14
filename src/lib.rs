@@ -1,3 +1,4 @@
+use archway_bindings::ArchwayQuery;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
@@ -19,12 +20,13 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, _env: Env, msg: msg::QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps<ArchwayQuery>, env: Env, msg: msg::QueryMsg) -> StdResult<Binary> {
     use contract::query;
     use msg::QueryMsg::*;
 
     match msg {
         OpenAuctions {} => to_binary(&query::open_auctions(deps)?),
-        Metadata { contract_address } => todo!(),
+        Metadata {} => to_binary(&query::contract_metadata(deps, env)?),
+        OutstandingRewards {} => to_binary(&query::outstanding_rewards(deps, env)?),
     }
 }

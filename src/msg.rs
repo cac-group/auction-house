@@ -1,7 +1,5 @@
-use archway_bindings::types::rewards;
 use cosmwasm_schema::cw_serde;
 use cosmwasm_schema::QueryResponses;
-use cosmwasm_std::Addr;
 
 use crate::state::Auction;
 
@@ -13,13 +11,21 @@ pub type Coins = Vec<cosmwasm_std::Coin>;
 pub enum QueryMsg {
     #[returns(OpenAuctionsResp)]
     OpenAuctions {},
-    #[returns(rewards::ContractMetadataResponse)]
-    Metadata { contract_address: Option<Addr> },
+    #[returns(OutstandingRewardsResponse)]
+    OutstandingRewards {},
+    #[returns(archway_bindings::types::rewards::ContractMetadataResponse)]
+    Metadata {},
 }
 
 #[cw_serde]
 pub struct OpenAuctionsResp {
     pub auctions: Vec<Auction>,
+}
+
+#[cw_serde]
+pub struct OutstandingRewardsResponse {
+    pub rewards_balance: Coins,
+    pub total_records: u64,
 }
 
 #[cw_serde]
