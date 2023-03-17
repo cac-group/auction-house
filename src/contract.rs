@@ -74,13 +74,20 @@ pub mod query {
 }
 
 pub mod exec {
-    use archway_bindings::{ArchwayMsg, ArchwayResult};
-    use cosmwasm_std::{Addr, Response};
+    use archway_bindings::{ArchwayMsg, ArchwayResult, ArchwayQuery};
+    use cosmwasm_std::{Addr, Response, DepsMut};
 
-    use crate::error::ContractError;
+    use crate::{error::ContractError, state::OWNER};
 
 
-    pub fn update_rewards_address(rewards_address: Addr) -> ArchwayResult<ContractError> {
+    pub fn update_rewards_address(deps: DepsMut<ArchwayQuery>, sender: Addr, rewards_address: Addr) -> ArchwayResult<ContractError> {
+
+        let owner = OWNER.load(deps.storage)?;
+
+        if sender != owner {
+            return Err(ContractError::Unauthorized)
+        }
+
         let msg = ArchwayMsg::update_rewards_address(rewards_address);
     
         let res = Response::new()
@@ -90,7 +97,14 @@ pub mod exec {
         Ok(res)
     }
 
-    pub fn withdraw_rewards() -> ArchwayResult<ContractError> {
+    pub fn withdraw_rewards(deps: DepsMut<ArchwayQuery>, sender: Addr) -> ArchwayResult<ContractError> {
+
+        let owner = OWNER.load(deps.storage)?;
+
+        if sender != owner {
+            return Err(ContractError::Unauthorized)
+        }
+
         let msg = ArchwayMsg::withdraw_rewards_by_limit(0);
     
         let res = Response::new()

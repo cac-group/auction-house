@@ -35,15 +35,15 @@ pub fn query(deps: Deps<ArchwayQuery>, env: Env, msg: msg::QueryMsg) -> StdResul
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
-    _deps: DepsMut<ArchwayQuery>,
+    deps: DepsMut<ArchwayQuery>,
     env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     msg: ExecMsg,
 ) -> ArchwayResult<ContractError> {
     match msg {
         ExecMsg::UpdateRewardsAddress { address } => {
-            update_rewards_address(address.unwrap_or(env.contract.address))
+            update_rewards_address(deps, info.sender, address.unwrap_or(env.contract.address))
         }
-        ExecMsg::WithdrawRewards {} => withdraw_rewards(),
+        ExecMsg::WithdrawRewards {} => withdraw_rewards(deps, info.sender),
     }
 }
