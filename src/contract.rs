@@ -10,8 +10,13 @@ pub fn instantiate(deps: DepsMut, sender: Addr) -> StdResult<Response> {
     //Set name and version of auction house contract
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
+    deps.api.addr_validate(&sender.clone().into_string())?;
+
+    let mut owners = OWNER.load(deps.storage)?;
+
+    owners.push(sender.clone());
     //The instantiation of this contract will also be the initial owner of it.
-    OWNER.save(deps.storage, &sender)?;
+    OWNER.save(deps.storage, &owners)?;
 
     AUCTIONS.save(deps.storage, &Vec::new())?;
 
@@ -82,9 +87,11 @@ pub mod exec {
 
     pub fn update_rewards_address(deps: DepsMut<ArchwayQuery>, sender: Addr, rewards_address: Addr) -> ArchwayResult<ContractError> {
 
-        let owner = OWNER.load(deps.storage)?;
+        deps.api.addr_validate(&sender.clone().into_string())?;
 
-        if sender != owner {
+        let owners = OWNER.load(deps.storage)?;
+
+        if !owners.contains(&sender){
             return Err(ContractError::Unauthorized)
         }
 
@@ -99,9 +106,11 @@ pub mod exec {
 
     pub fn withdraw_rewards(deps: DepsMut<ArchwayQuery>, sender: Addr) -> ArchwayResult<ContractError> {
 
-        let owner = OWNER.load(deps.storage)?;
+        deps.api.addr_validate(&sender.clone().into_string())?;
 
-        if sender != owner {
+        let owners = OWNER.load(deps.storage)?;
+
+        if !owners.contains(&sender){
             return Err(ContractError::Unauthorized)
         }
 
@@ -114,14 +123,5 @@ pub mod exec {
         Ok(res)
     }
 
-    /*pub fn update_rewards_ownership(rewards_address: Addr) -> ArchwayResult<ContractError> {
-        let msg = ArchwayMsg::update_rewards_ownership(rewards_address);
-    
-        let res = Response::new()
-            .add_message(msg)
-            .add_attribute("method", "update_rewards_address");
-    
-        Ok(res)
-    }*/
     
 }
