@@ -1,7 +1,7 @@
 use cosmwasm_std::{Addr, DepsMut, Response, StdResult};
 use cw2::set_contract_version;
 
-use crate::state::{AUCTIONS, OWNER};
+use crate::state::{AUCTIONS, OWNERS};
 
 const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -12,11 +12,11 @@ pub fn instantiate(deps: DepsMut, sender: Addr) -> StdResult<Response> {
 
     deps.api.addr_validate(&sender.clone().into_string())?;
 
-    let mut owners = OWNER.load(deps.storage)?;
+    let mut owners = OWNERS.load(deps.storage)?;
 
     owners.push(sender.clone());
     //The instantiation of this contract will also be the initial owner of it.
-    OWNER.save(deps.storage, &owners)?;
+    OWNERS.save(deps.storage, &owners)?;
 
     AUCTIONS.save(deps.storage, &Vec::new())?;
 
@@ -28,11 +28,17 @@ pub fn instantiate(deps: DepsMut, sender: Addr) -> StdResult<Response> {
 }
 
 pub mod query {
-    use archway_bindings::{types::rewards::{ContractMetadataResponse, RewardsRecordsResponse}, ArchwayQuery, PageRequest};
+    use archway_bindings::{
+        types::rewards::{ContractMetadataResponse, RewardsRecordsResponse},
+        ArchwayQuery, PageRequest,
+    };
     use cosmwasm_std::{Deps, Env, StdResult};
     use cw_utils::NativeBalance;
 
-    use crate::{msg::{OpenAuctionsResp, OutstandingRewardsResponse}, state::AUCTIONS};
+    use crate::{
+        msg::{OpenAuctionsResp, OutstandingRewardsResponse},
+        state::AUCTIONS,
+    };
 
     //We return the current auctions that are still open and/or unclaimed.
     pub fn open_auctions(deps: Deps<ArchwayQuery>) -> StdResult<OpenAuctionsResp> {
@@ -41,6 +47,7 @@ pub mod query {
         Ok(OpenAuctionsResp { auctions })
     }
 
+    //We get the owner address and rewards address
     pub fn contract_metadata(
         deps: Deps<ArchwayQuery>,
         env: Env,
@@ -49,6 +56,7 @@ pub mod query {
         deps.querier.query(&req)
     }
 
+    //Check unclaimed rewards
     pub fn outstanding_rewards(
         deps: Deps<ArchwayQuery>,
         env: Env,
@@ -79,49 +87,103 @@ pub mod query {
 }
 
 pub mod exec {
-    use archway_bindings::{ArchwayMsg, ArchwayResult, ArchwayQuery};
-    use cosmwasm_std::{Addr, Response, DepsMut};
+    use archway_bindings::{ArchwayMsg, ArchwayQuery, ArchwayResult};
+    use cosmwasm_std::{Addr, DepsMut, Response};
 
-    use crate::{error::ContractError, state::OWNER};
+    use crate::{error::ContractError, state::OWNERS};
 
-
-    pub fn update_rewards_address(deps: DepsMut<ArchwayQuery>, sender: Addr, rewards_address: Addr) -> ArchwayResult<ContractError> {
-
+    pub fn update_rewards_address(
+        deps: DepsMut<ArchwayQuery>,
+        sender: Addr,
+        rewards_address: Addr,
+    ) -> ArchwayResult<ContractError> {
         deps.api.addr_validate(&sender.clone().into_string())?;
 
-        let owners = OWNER.load(deps.storage)?;
+        let owners = OWNERS.load(deps.storage)?;
 
-        if !owners.contains(&sender){
-            return Err(ContractError::Unauthorized)
+        if !owners.contains(&sender) {
+            return Err(ContractError::Unauthorized);
         }
 
         let msg = ArchwayMsg::update_rewards_address(rewards_address);
-    
+
         let res = Response::new()
             .add_message(msg)
             .add_attribute("method", "update_rewards_address");
-    
+
         Ok(res)
     }
 
-    pub fn withdraw_rewards(deps: DepsMut<ArchwayQuery>, sender: Addr) -> ArchwayResult<ContractError> {
-
+    pub fn withdraw_rewards(
+        deps: DepsMut<ArchwayQuery>,
+        sender: Addr,
+    ) -> ArchwayResult<ContractError> {
         deps.api.addr_validate(&sender.clone().into_string())?;
 
-        let owners = OWNER.load(deps.storage)?;
+        let owners = OWNERS.load(deps.storage)?;
 
-        if !owners.contains(&sender){
-            return Err(ContractError::Unauthorized)
+        if !owners.contains(&sender) {
+            return Err(ContractError::Unauthorized);
         }
 
         let msg = ArchwayMsg::withdraw_rewards_by_limit(0);
-    
+
         let res = Response::new()
             .add_message(msg)
             .add_attribute("method", "withdraw_rewards");
-    
+
         Ok(res)
     }
 
-    
+    pub fn add_owner(
+        deps: DepsMut<ArchwayQuery>,
+        sender: Addr,
+        new_owner: Addr,
+    ) -> ArchwayResult<ContractError> {
+        deps.api.addr_validate(&sender.clone().into_string())?;
+        deps.api.addr_validate(&new_owner.clone().into_string())?;
+
+        let mut owners = OWNERS.load(deps.storage)?;
+
+        if !owners.contains(&sender) {
+            return Err(ContractError::Unauthorized);
+        }
+
+        if !owners.contains(&new_owner.clone()) {
+            owners.push(new_owner)
+        }
+
+        OWNERS.save(deps.storage, &owners)?;
+
+        let res = Response::new().add_attribute("method", "add_owner");
+
+        Ok(res)
+    }
+
+    pub fn remove_owner(
+        deps: DepsMut<ArchwayQuery>,
+        sender: Addr,
+        old_owner: Addr,
+    ) -> ArchwayResult<ContractError> {
+        deps.api.addr_validate(&sender.clone().into_string())?;
+        deps.api.addr_validate(&old_owner.clone().into_string())?;
+
+        let mut owners = OWNERS.load(deps.storage)?;
+
+        if !owners.contains(&sender) {
+            return Err(ContractError::Unauthorized);
+        }
+
+        owners.retain(|value| value.to_string() != old_owner.to_string());
+
+        if owners.is_empty() {
+            return Err(ContractError::NoOwner);
+        }
+
+        OWNERS.save(deps.storage, &owners)?;
+
+        let res = Response::new().add_attribute("method", "remove_owner");
+
+        Ok(res)
+    }
 }

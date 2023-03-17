@@ -8,4 +8,7 @@ pub enum ContractError {
 
     #[error("Not owner, unauthorized")]
     Unauthorized,
+
+    #[error("Must have atleast 1 owner")]
+    NoOwner,
 }

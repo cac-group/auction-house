@@ -36,4 +36,6 @@ pub struct InstantiateMsg {}
 pub enum ExecMsg {
     WithdrawRewards {},
     UpdateRewardsAddress { address: Option<Addr> },
+    AddOwner { new_owner: Addr },
+    RemoveOwner { old_owner: Addr },
 }

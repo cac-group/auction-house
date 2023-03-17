@@ -1,5 +1,5 @@
 use archway_bindings::{ArchwayQuery, ArchwayResult};
-use contract::exec::{update_rewards_address, withdraw_rewards};
+use contract::exec::{update_rewards_address, withdraw_rewards, add_owner, remove_owner};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
@@ -45,5 +45,11 @@ pub fn execute(
             update_rewards_address(deps, info.sender, address.unwrap_or(env.contract.address))
         }
         ExecMsg::WithdrawRewards {} => withdraw_rewards(deps, info.sender),
+        ExecMsg::AddOwner { new_owner } => {
+            add_owner(deps, info.sender, new_owner)
+        },
+        ExecMsg::RemoveOwner {old_owner } => {
+            remove_owner(deps, info.sender, old_owner)
+        }
     }
 }

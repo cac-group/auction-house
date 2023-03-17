@@ -17,7 +17,7 @@ pub struct Auction {
 //Contract owner that will receive rewards from Archway inflation module when they are withdrawn from this one.
 //When platform is live this will be a proxy contract address that will have a method for all rewards receivers to claim their proportional rewards.
 
-pub const OWNER: Item<Vec<Addr>> = Item::new("owner");
+pub const OWNERS: Item<Vec<Addr>> = Item::new("owner");
 
 //Current auctions that are open and/or unclaimed
 
