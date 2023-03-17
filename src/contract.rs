@@ -73,4 +73,41 @@ pub mod query {
     }
 }
 
-pub mod exec {}
+pub mod exec {
+    use archway_bindings::{ArchwayMsg, ArchwayResult};
+    use cosmwasm_std::{Addr, Response};
+
+    use crate::error::ContractError;
+
+
+    pub fn update_rewards_address(rewards_address: Addr) -> ArchwayResult<ContractError> {
+        let msg = ArchwayMsg::update_rewards_address(rewards_address);
+    
+        let res = Response::new()
+            .add_message(msg)
+            .add_attribute("method", "update_rewards_address");
+    
+        Ok(res)
+    }
+
+    pub fn withdraw_rewards() -> ArchwayResult<ContractError> {
+        let msg = ArchwayMsg::withdraw_rewards_by_limit(0);
+    
+        let res = Response::new()
+            .add_message(msg)
+            .add_attribute("method", "withdraw_rewards");
+    
+        Ok(res)
+    }
+
+    /*pub fn update_rewards_ownership(rewards_address: Addr) -> ArchwayResult<ContractError> {
+        let msg = ArchwayMsg::update_rewards_ownership(rewards_address);
+    
+        let res = Response::new()
+            .add_message(msg)
+            .add_attribute("method", "update_rewards_address");
+    
+        Ok(res)
+    }*/
+    
+}

@@ -1,5 +1,6 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_schema::QueryResponses;
+use cosmwasm_std::Addr;
 
 use crate::state::Auction;
 
@@ -30,3 +31,9 @@ pub struct OutstandingRewardsResponse {
 
 #[cw_serde]
 pub struct InstantiateMsg {}
+
+#[cw_serde]
+pub enum ExecMsg {
+    WithdrawRewards {},
+    UpdateRewardsAddress { address: Option<Addr> },
+}
