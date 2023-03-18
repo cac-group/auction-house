@@ -258,7 +258,7 @@ pub mod exec {
             .find(|coin| coin.denom == auctions[auction_position.unwrap()].min_bid.denom)
             == None
         {
-            return Err(ContractError::NoBids);
+            return Err(ContractError::NoFunds);
         }
 
         let new_bid_amount = funds
@@ -304,8 +304,10 @@ pub mod exec {
 
             resp = Response::new()
                 .add_message(return_funds_msg)
-                .add_attribute("method", "bid")
-                .add_attribute("bidder", sender.clone());
+                .add_attribute("method", "bid_with_refund")
+                .add_attribute("new_bidder", sender.clone())
+                .add_attribute("old_bidder", auctions[auction_position.unwrap()].current_bidder.clone().unwrap());
+            
         } else {
             resp = Response::new()
                 .add_attribute("method", "bid")
@@ -318,6 +320,82 @@ pub mod exec {
         auctions[auction_position.unwrap()].current_bid = Some(coin(new_bid_amount, auction_denom));
 
         AUCTIONS.save(deps.storage, &auctions)?;
+
+        Ok(resp)
+    }
+
+    pub fn buyout(
+        deps: DepsMut<ArchwayQuery>,
+        sender: Addr,
+        funds: Vec<Coin>,
+        nft: String,
+    ) -> ArchwayResult<ContractError> {
+        let mut auctions = AUCTIONS.load(deps.storage)?;
+
+        //We check if the auction we want to buyout exists (get the position in the auction array)
+        let auction_position = auctions.iter().position(|auction| auction.nft == nft);
+
+        if auction_position.is_none() {
+            return Err(ContractError::NoAuction);
+        }
+
+        let auction_denom = auctions[auction_position.unwrap()].min_bid.clone().denom;
+        //We check if the buyer sent the funds wanted by the auction creator (and that they correspond to the right denom)
+        if funds
+            .iter()
+            .find(|coin| coin.denom == auctions[auction_position.unwrap()].min_bid.denom)
+            == None
+        {
+            return Err(ContractError::NoFunds);
+        }
+
+        let buyout_amount = funds
+            .iter()
+            .find(|coin| coin.denom == auction_denom)
+            .unwrap()
+            .amount
+            .u128();
+
+        if buyout_amount < auctions[auction_position.unwrap()].buyout_price.amount.into() {
+            return Err(ContractError::PriceNotMet);
+        }
+
+        //We check if there is already a bidder. If that's the case, we send his funds back because he lost the auction.
+        let resp;
+
+        if auctions[auction_position.unwrap()].current_bidder.is_some() {
+            //We create the return funds message of previous bidder.
+            let return_funds_msg = BankMsg::Send {
+                to_address: auctions[auction_position.unwrap()]
+                    .current_bidder
+                    .clone()
+                    .unwrap()
+                    .into_string(),
+                amount: vec![auctions[auction_position.unwrap()]
+                    .current_bid
+                    .clone()
+                    .unwrap()],
+            };
+
+            resp = Response::new()
+                .add_message(return_funds_msg)
+                .add_attribute("method", "buyout_with_refund")
+                .add_attribute("buyer", sender.clone())
+                .add_attribute("old_bidder", auctions[auction_position.unwrap()].current_bidder.clone().unwrap());
+            
+        } else {
+            resp = Response::new()
+                .add_attribute("method", "buyout")
+                .add_attribute("buyer", sender.clone());
+        }
+
+        //We remove the auction from the auction from the auctions array
+
+        auctions.retain(|auction| auction.nft != nft);
+
+        AUCTIONS.save(deps.storage, &auctions)?;
+
+        //TODO: SEND NFT TO BUYER.
 
         Ok(resp)
     }

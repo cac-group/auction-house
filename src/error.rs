@@ -19,11 +19,14 @@ pub enum ContractError {
     AuctionExists,
 
     #[error("No bid funds sent")]
-    NoBids,
+    NoFunds,
 
     #[error("Bid is lower than minimum bid")]
     BidUnderMinimum,
 
     #[error("Bid is lower than current bid")]
     BidNotEnough,
+
+    #[error("Buyout price not met")]
+    PriceNotMet,
 }

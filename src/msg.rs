@@ -52,5 +52,9 @@ pub enum ExecMsg {
     },
     Bid {
         nft: String,
+    },
+    
+    Buyout {
+        nft: String,
     }
 }
