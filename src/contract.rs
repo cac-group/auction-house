@@ -88,9 +88,12 @@ pub mod query {
 
 pub mod exec {
     use archway_bindings::{ArchwayMsg, ArchwayQuery, ArchwayResult};
-    use cosmwasm_std::{Addr, DepsMut, Response, coin, Timestamp};
+    use cosmwasm_std::{coin, Addr, BankMsg, Coin, DepsMut, Response, Timestamp};
 
-    use crate::{error::ContractError, state::{OWNERS, AUCTIONS, Auction}};
+    use crate::{
+        error::ContractError,
+        state::{Auction, AUCTIONS, OWNERS},
+    };
 
     //Any of the owners an modify where the rewards accumulated by the contract will be sent to when they are withdrawn.
     pub fn update_rewards_address(
@@ -191,7 +194,7 @@ pub mod exec {
 
         Ok(res)
     }
-    
+
     pub fn create_auction(
         deps: DepsMut<ArchwayQuery>,
         sender: Addr,
@@ -199,20 +202,19 @@ pub mod exec {
         nft: String,
         min_bid: u64,
         buyout: u64,
-        denom: String
+        denom: String,
     ) -> ArchwayResult<ContractError> {
-
         //TODO: Check if contract has the NFT that was sent before, we can't create an auction of the
 
         let mut auctions = AUCTIONS.load(deps.storage)?;
 
         if auctions.iter().any(|auction| auction.nft == nft) {
-            return Err(ContractError::AuctionExists)
+            return Err(ContractError::AuctionExists);
         }
 
         //TODO (FOR PRODUCTION): Make a list of allowed denoms to create auctions
 
-        let three_days= Timestamp::from_seconds(72*60*60); 
+        let three_days = Timestamp::from_seconds(72 * 60 * 60);
         //We create an auction with a default time limit of 72h (In the future we will make this time modifiable)
         let new_auction = Auction {
             nft,
@@ -232,7 +234,91 @@ pub mod exec {
         let res = Response::new().add_attribute("method", "create_auction");
 
         Ok(res)
-
     }
 
+    pub fn bid(
+        deps: DepsMut<ArchwayQuery>,
+        sender: Addr,
+        funds: Vec<Coin>,
+        nft: String,
+    ) -> ArchwayResult<ContractError> {
+        let mut auctions = AUCTIONS.load(deps.storage)?;
+
+        //We check if the auction we want to bid on exists (get the position in the auction array)
+        let auction_position = auctions.iter().position(|auction| auction.nft == nft);
+
+        if auction_position.is_none() {
+            return Err(ContractError::NoAuction);
+        }
+
+        let auction_denom = auctions[auction_position.unwrap()].min_bid.clone().denom;
+        //We check if the bidder sent the funds wanted by the auction creator (and that they correspond to the right denom)
+        if funds
+            .iter()
+            .find(|coin| coin.denom == auctions[auction_position.unwrap()].min_bid.denom)
+            == None
+        {
+            return Err(ContractError::NoBids);
+        }
+
+        let new_bid_amount = funds
+            .iter()
+            .find(|coin| coin.denom == auction_denom)
+            .unwrap()
+            .amount
+            .u128();
+
+        if new_bid_amount < auctions[auction_position.unwrap()].min_bid.amount.into() {
+            return Err(ContractError::BidUnderMinimum);
+        }
+
+        //We check if there is already a bidder and if our bid is higher than his. If that's the case, we update the current bidder with the new one
+        //and return the funds to the old bidder.
+        let resp;
+
+        if auctions[auction_position.unwrap()].current_bidder.is_some() {
+            //If the new bid is lower than current bid then we throw an error.
+            if new_bid_amount
+                <= auctions[auction_position.unwrap()]
+                    .current_bid
+                    .clone()
+                    .unwrap()
+                    .amount
+                    .into()
+            {
+                return Err(ContractError::BidNotEnough);
+            }
+
+            //We create the return funds message of previous bidder.
+            let return_funds_msg = BankMsg::Send {
+                to_address: auctions[auction_position.unwrap()]
+                    .current_bidder
+                    .clone()
+                    .unwrap()
+                    .into_string(),
+                amount: vec![auctions[auction_position.unwrap()]
+                    .current_bid
+                    .clone()
+                    .unwrap()],
+            };
+
+            resp = Response::new()
+                .add_message(return_funds_msg)
+                .add_attribute("method", "bid")
+                .add_attribute("bidder", sender.clone());
+        } else {
+            resp = Response::new()
+                .add_attribute("method", "bid")
+                .add_attribute("bidder", sender.clone());
+        }
+
+        //We update the new current highest offer in the contract state.
+
+        auctions[auction_position.unwrap()].current_bidder = Some(sender);
+        auctions[auction_position.unwrap()].current_bid = Some(coin(new_bid_amount, auction_denom));
+
+        AUCTIONS.save(deps.storage, &auctions)?;
+
+        Ok(resp)
+    }
 }

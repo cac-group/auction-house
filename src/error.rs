@@ -12,6 +12,18 @@ pub enum ContractError {
     #[error("Must have atleast 1 owner")]
     NoOwner,
 
+    #[error("Auction does not exist")]
+    NoAuction,
+
     #[error("Auction already exists")]
     AuctionExists,
+
+    #[error("No bid funds sent")]
+    NoBids,
+
+    #[error("Bid is lower than minimum bid")]
+    BidUnderMinimum,
+
+    #[error("Bid is lower than current bid")]
+    BidNotEnough,
 }

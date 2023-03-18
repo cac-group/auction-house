@@ -1,5 +1,5 @@
 use archway_bindings::{ArchwayQuery, ArchwayResult};
-use contract::exec::{update_rewards_address, withdraw_rewards, add_owner, remove_owner, create_auction};
+use contract::exec::{update_rewards_address, withdraw_rewards, add_owner, remove_owner, create_auction, bid};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
@@ -53,6 +53,9 @@ pub fn execute(
         },
         ExecMsg::CreateAuction { nft, min_bid, buyout, denom } => {
             create_auction(deps, info.sender, env.block.time.seconds() ,nft, min_bid, buyout, denom)
+        }
+        ExecMsg::Bid { nft } => {
+            bid(deps, info.sender, info.funds, nft)
         }
     }
 }

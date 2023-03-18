@@ -50,4 +50,7 @@ pub enum ExecMsg {
         buyout: u64,
         denom: String,
     },
+    Bid {
+        nft: String,
+    }
 }
