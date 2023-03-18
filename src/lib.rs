@@ -1,5 +1,5 @@
 use archway_bindings::{ArchwayQuery, ArchwayResult};
-use contract::exec::{update_rewards_address, withdraw_rewards, add_owner, remove_owner};
+use contract::exec::{update_rewards_address, withdraw_rewards, add_owner, remove_owner, create_auction};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
@@ -48,8 +48,11 @@ pub fn execute(
         ExecMsg::AddOwner { new_owner } => {
             add_owner(deps, info.sender, new_owner)
         },
-        ExecMsg::RemoveOwner {old_owner } => {
+        ExecMsg::RemoveOwner { old_owner } => {
             remove_owner(deps, info.sender, old_owner)
+        },
+        ExecMsg::CreateAuction { nft, min_bid, buyout, denom } => {
+            create_auction(deps, info.sender, env.block.time.seconds() ,nft, min_bid, buyout, denom)
         }
     }
 }

@@ -88,10 +88,11 @@ pub mod query {
 
 pub mod exec {
     use archway_bindings::{ArchwayMsg, ArchwayQuery, ArchwayResult};
-    use cosmwasm_std::{Addr, DepsMut, Response};
+    use cosmwasm_std::{Addr, DepsMut, Response, coin, Timestamp};
 
-    use crate::{error::ContractError, state::OWNERS};
+    use crate::{error::ContractError, state::{OWNERS, AUCTIONS, Auction}};
 
+    //Any of the owners an modify where the rewards accumulated by the contract will be sent to when they are withdrawn.
     pub fn update_rewards_address(
         deps: DepsMut<ArchwayQuery>,
         sender: Addr,
@@ -114,6 +115,8 @@ pub mod exec {
         Ok(res)
     }
 
+    //Any of the owners can withdraw the rewards to the reward address set up (This can be a wallet or ideally a contract that distributes rewards accordingly
+    //if there are multiple rewards receivers (optionally using a ratio)).
     pub fn withdraw_rewards(
         deps: DepsMut<ArchwayQuery>,
         sender: Addr,
@@ -135,6 +138,7 @@ pub mod exec {
         Ok(res)
     }
 
+    //Any owner can add another owner that will have permissions to modify the contract metadata and be able to withdraw rewards.
     pub fn add_owner(
         deps: DepsMut<ArchwayQuery>,
         sender: Addr,
@@ -160,6 +164,7 @@ pub mod exec {
         Ok(res)
     }
 
+    //Any owner can remove another owner to withdraw his permissions as long as he is not the last owner.
     pub fn remove_owner(
         deps: DepsMut<ArchwayQuery>,
         sender: Addr,
@@ -186,4 +191,48 @@ pub mod exec {
 
         Ok(res)
     }
+    
+    pub fn create_auction(
+        deps: DepsMut<ArchwayQuery>,
+        sender: Addr,
+        blocktime: u64,
+        nft: String,
+        min_bid: u64,
+        buyout: u64,
+        denom: String
+    ) -> ArchwayResult<ContractError> {
+
+        //TODO: Check if contract has the NFT that was sent before, we can't create an auction of the
+
+        let mut auctions = AUCTIONS.load(deps.storage)?;
+
+        if auctions.iter().any(|auction| auction.nft == nft) {
+            return Err(ContractError::AuctionExists)
+        }
+
+        //TODO (FOR PRODUCTION): Make a list of allowed denoms to create auctions
+
+        let three_days= Timestamp::from_seconds(72*60*60); 
+        //We create an auction with a default time limit of 72h (In the future we will make this time modifiable)
+        let new_auction = Auction {
+            nft,
+            current_bid: None,
+            current_bidder: None,
+            min_bid: coin(min_bid.into(), denom.clone()),
+            buyout_price: coin(buyout.into(), denom),
+            owner: sender,
+            end_auction: three_days.plus_seconds(blocktime),
+        };
+
+        //Store the new auction in the contract state
+        auctions.push(new_auction);
+
+        AUCTIONS.save(deps.storage, &auctions)?;
+
+        let res = Response::new().add_attribute("method", "create_auction");
+
+        Ok(res)
+
+    }
+
 }

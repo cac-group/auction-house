@@ -11,4 +11,7 @@ pub enum ContractError {
 
     #[error("Must have atleast 1 owner")]
     NoOwner,
+
+    #[error("Auction already exists")]
+    AuctionExists,
 }

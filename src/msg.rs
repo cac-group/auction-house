@@ -35,7 +35,19 @@ pub struct InstantiateMsg {}
 #[cw_serde]
 pub enum ExecMsg {
     WithdrawRewards {},
-    UpdateRewardsAddress { address: Option<Addr> },
-    AddOwner { new_owner: Addr },
-    RemoveOwner { old_owner: Addr },
+    UpdateRewardsAddress {
+        address: Option<Addr>,
+    },
+    AddOwner {
+        new_owner: Addr,
+    },
+    RemoveOwner {
+        old_owner: Addr,
+    },
+    CreateAuction {
+        nft: String,
+        min_bid: u64,
+        buyout: u64,
+        denom: String,
+    },
 }
