@@ -88,8 +88,11 @@ pub mod query {
 
 pub mod exec {
     use archway_bindings::{ArchwayMsg, ArchwayQuery, ArchwayResult};
-    use cosmwasm_std::{coin, Addr, BankMsg, Coin, DepsMut, Response, Timestamp, Env, QueryRequest, WasmQuery, to_binary, WasmMsg};
-    use cw721::{OwnerOfResponse, Cw721QueryMsg, Cw721ExecuteMsg};
+    use cosmwasm_std::{
+        coin, to_binary, Addr, BankMsg, Coin, DepsMut, Env, QueryRequest, Response, Timestamp,
+        WasmMsg, WasmQuery,
+    };
+    use cw721::{Cw721ExecuteMsg, Cw721QueryMsg, OwnerOfResponse};
 
     use crate::{
         error::ContractError,
@@ -207,20 +210,25 @@ pub mod exec {
         buyout: u64,
         denom: String,
     ) -> ArchwayResult<ContractError> {
-        
-        let query_msg: Cw721QueryMsg = Cw721QueryMsg::OwnerOf { token_id: nft_id.clone(), include_expired: None };
-        
-        let query_response: OwnerOfResponse = 
-            deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart { contract_addr: nft_contract.clone(), msg: to_binary(&query_msg)? }))?;
+        let query_msg: Cw721QueryMsg = Cw721QueryMsg::OwnerOf {
+            token_id: nft_id.clone(),
+            include_expired: None,
+        };
+
+        let query_response: OwnerOfResponse =
+            deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+                contract_addr: nft_contract.clone(),
+                msg: to_binary(&query_msg)?,
+            }))?;
 
         if query_response.owner != env.contract.address {
-            return Err(ContractError::NoNFT)
+            return Err(ContractError::NoNFT);
         }
 
         let mut auctions = AUCTIONS.load(deps.storage)?;
 
         if auctions.iter().any(|auction| auction.nft_id == nft_id) {
-            return Err(ContractError::AuctionExists)
+            return Err(ContractError::AuctionExists);
         }
 
         //TODO (FOR PRODUCTION): Make a list of allowed denoms to create auctions
@@ -253,6 +261,7 @@ pub mod exec {
         sender: Addr,
         funds: Vec<Coin>,
         nft_id: String,
+        blocktime: u64
     ) -> ArchwayResult<ContractError> {
         let mut auctions = AUCTIONS.load(deps.storage)?;
 
@@ -261,6 +270,11 @@ pub mod exec {
 
         if auction_position.is_none() {
             return Err(ContractError::NoAuction);
+        }
+
+        //We check if the auction is finished or not.
+        if blocktime > auctions[auction_position.unwrap()].end_auction.seconds() {
+            return Err(ContractError::AuctionFinished)
         }
 
         let auction_denom = auctions[auction_position.unwrap()].min_bid.clone().denom;
@@ -318,8 +332,13 @@ pub mod exec {
                 .add_message(return_funds_msg)
                 .add_attribute("method", "bid_with_refund")
                 .add_attribute("new_bidder", sender.clone())
-                .add_attribute("old_bidder", auctions[auction_position.unwrap()].current_bidder.clone().unwrap());
-            
+                .add_attribute(
+                    "old_bidder",
+                    auctions[auction_position.unwrap()]
+                        .current_bidder
+                        .clone()
+                        .unwrap(),
+                );
         } else {
             resp = Response::new()
                 .add_attribute("method", "bid")
@@ -341,14 +360,22 @@ pub mod exec {
         sender: Addr,
         funds: Vec<Coin>,
         nft_id: String,
+        blocktime: u64,
     ) -> ArchwayResult<ContractError> {
         let mut auctions = AUCTIONS.load(deps.storage)?;
 
         //We check if the auction we want to buyout exists (get the position in the auction array)
-        let auction_position = auctions.iter().position(|auction| auction.nft_id == nft_id.clone());
+        let auction_position = auctions
+            .iter()
+            .position(|auction| auction.nft_id == nft_id.clone());
 
         if auction_position.is_none() {
             return Err(ContractError::NoAuction);
+        }
+
+        //We check if the auction is finished or not.
+        if blocktime > auctions[auction_position.unwrap()].end_auction.seconds() {
+            return Err(ContractError::AuctionFinished)
         }
 
         let auction_denom = auctions[auction_position.unwrap()].min_bid.clone().denom;
@@ -368,7 +395,12 @@ pub mod exec {
             .amount
             .u128();
 
-        if buyout_amount < auctions[auction_position.unwrap()].buyout_price.amount.into() {
+        if buyout_amount
+            < auctions[auction_position.unwrap()]
+                .buyout_price
+                .amount
+                .into()
+        {
             return Err(ContractError::PriceNotMet);
         }
 
@@ -393,8 +425,13 @@ pub mod exec {
                 .add_message(return_funds_msg)
                 .add_attribute("method", "buyout_with_refund")
                 .add_attribute("buyer", sender.clone())
-                .add_attribute("old_bidder", auctions[auction_position.unwrap()].current_bidder.clone().unwrap());
-            
+                .add_attribute(
+                    "old_bidder",
+                    auctions[auction_position.unwrap()]
+                        .current_bidder
+                        .clone()
+                        .unwrap(),
+                );
         } else {
             resp = Response::new()
                 .add_attribute("method", "buyout")
@@ -403,13 +440,165 @@ pub mod exec {
 
         // We prepare the message to send the NFT to the buyer
 
-        let send_nft_msg = Cw721ExecuteMsg::TransferNft { recipient: sender.into_string(), token_id: nft_id.clone()};
+        let send_nft_msg = Cw721ExecuteMsg::TransferNft {
+            recipient: sender.into_string(),
+            token_id: nft_id.clone(),
+        };
 
-        let wasm_send_nft = WasmMsg::Execute { contract_addr: auctions[auction_position.unwrap()].nft_contract.clone(), msg: to_binary(&send_nft_msg)? ,funds: vec![] };
+        let wasm_send_nft = WasmMsg::Execute {
+            contract_addr: auctions[auction_position.unwrap()].nft_contract.clone(),
+            msg: to_binary(&send_nft_msg)?,
+            funds: vec![],
+        };
 
         resp = resp.add_message(wasm_send_nft);
 
         //We remove the auction from the auction from the auctions array
+
+        auctions.retain(|auction| auction.nft_id != nft_id);
+
+        AUCTIONS.save(deps.storage, &auctions)?;
+
+        Ok(resp)
+    }
+
+    pub fn close(
+        deps: DepsMut<ArchwayQuery>,
+        sender: Addr,
+        blocktime: u64,
+        nft_id: String,
+    ) -> ArchwayResult<ContractError> {
+        let mut auctions = AUCTIONS.load(deps.storage)?;
+
+        //We check if the auction we want to close exists (get the position in the auction array)
+        let auction_position = auctions
+            .iter()
+            .position(|auction| auction.nft_id == nft_id.clone());
+
+        if auction_position.is_none() {
+            return Err(ContractError::NoAuction);
+        }
+
+        //If there are no bids, only the owner can close the auction
+        if auctions[auction_position.unwrap()].current_bid.is_none()
+            && sender != auctions[auction_position.unwrap()].owner
+        {
+            return Err(ContractError::Unauthorized);
+        }
+
+        let mut resp = Response::new();
+
+        //If there are no bids and the owner closes, send the NFT back to him.
+        if auctions[auction_position.unwrap()].current_bid.is_none() {
+            let send_nft_msg = Cw721ExecuteMsg::TransferNft {
+                recipient: sender.into_string(),
+                token_id: nft_id.clone(),
+            };
+
+            let wasm_send_nft = WasmMsg::Execute {
+                contract_addr: auctions[auction_position.unwrap()].nft_contract.clone(),
+                msg: to_binary(&send_nft_msg)?,
+                funds: vec![],
+            };
+
+            resp = resp
+                .add_message(wasm_send_nft)
+                .add_attribute("method", "close without bids");
+
+        } else {
+            //If the auction is not finished but there are bids, only the owner can close the current auction for the current bid.
+            if blocktime < auctions[auction_position.unwrap()].end_auction.seconds()
+                && sender != auctions[auction_position.unwrap()].owner
+            {
+                return Err(ContractError::Unauthorized);
+            }
+
+            //If the auction is not finished and there are bids, the owner can close it and accept the current bid without waiting for it to end.
+            if blocktime < auctions[auction_position.unwrap()].end_auction.seconds()
+                && sender == auctions[auction_position.unwrap()].owner
+            {
+                let send_nft_msg = Cw721ExecuteMsg::TransferNft {
+                    recipient: auctions[auction_position.unwrap()]
+                        .clone()
+                        .current_bidder
+                        .unwrap()
+                        .to_string(),
+                    token_id: nft_id.clone(),
+                };
+
+                let wasm_send_nft = WasmMsg::Execute {
+                    contract_addr: auctions[auction_position.unwrap()].nft_contract.clone(),
+                    msg: to_binary(&send_nft_msg)?,
+                    funds: vec![],
+                };
+
+                let send_funds_msg = BankMsg::Send {
+                    to_address: sender.clone().into_string(),
+                    amount: vec![auctions[auction_position.unwrap()]
+                        .current_bid
+                        .clone()
+                        .unwrap()],
+                };
+
+                resp = resp
+                    .add_message(wasm_send_nft)
+                    .add_message(send_funds_msg)
+                    .add_attribute("method", "accept current bid")
+                    .add_attribute(
+                        "nft_receiver",
+                        auctions[auction_position.unwrap()]
+                            .clone()
+                            .current_bidder
+                            .unwrap(),
+                    );
+
+            }
+
+            //If auction is finished, both auction creator or winner can close it.
+            if blocktime > auctions[auction_position.unwrap()].end_auction.seconds() {
+
+                if sender.clone() != auctions[auction_position.unwrap()].owner || sender != auctions[auction_position.unwrap()].clone().current_bidder.unwrap() {
+                    return Err(ContractError::CannotClose)
+                }
+
+                let send_nft_msg = Cw721ExecuteMsg::TransferNft {
+                    recipient: auctions[auction_position.unwrap()]
+                        .clone()
+                        .current_bidder
+                        .unwrap()
+                        .to_string(),
+                    token_id: nft_id.clone(),
+                };
+
+                let wasm_send_nft = WasmMsg::Execute {
+                    contract_addr: auctions[auction_position.unwrap()].nft_contract.clone(),
+                    msg: to_binary(&send_nft_msg)?,
+                    funds: vec![],
+                };
+
+                let send_funds_msg = BankMsg::Send {
+                    to_address: sender.into_string(),
+                    amount: vec![auctions[auction_position.unwrap()]
+                        .current_bid
+                        .clone()
+                        .unwrap()],
+                };
+
+                resp = resp
+                    .add_message(wasm_send_nft)
+                    .add_message(send_funds_msg)
+                    .add_attribute("method", "close a completed auction")
+                    .add_attribute(
+                        "nft_receiver",
+                        auctions[auction_position.unwrap()]
+                            .clone()
+                            .current_bidder
+                            .unwrap(),
+                    );
+            }
+        }
+
+        //Remove the auction that was closed.
 
         auctions.retain(|auction| auction.nft_id != nft_id);
 

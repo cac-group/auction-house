@@ -1,6 +1,6 @@
 use archway_bindings::{ArchwayQuery, ArchwayResult};
 use contract::exec::{
-    add_owner, bid, buyout, create_auction, remove_owner, update_rewards_address, withdraw_rewards,
+    add_owner, bid, buyout, create_auction, remove_owner, update_rewards_address, withdraw_rewards, close,
 };
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
@@ -68,9 +68,12 @@ pub fn execute(
         ),
         ExecMsg::Bid {
             nft_id,
-        } => bid(deps, info.sender, info.funds, nft_id),
+        } => bid(deps, info.sender, info.funds, nft_id, env.block.time.seconds()),
         ExecMsg::Buyout {
             nft_id,
-        } => buyout(deps, info.sender, info.funds, nft_id),
+        } => buyout(deps, info.sender, info.funds, nft_id, env.block.time.seconds()),
+        ExecMsg::Close {
+            nft_id,
+        } => close(deps, info.sender, env.block.time.seconds(), nft_id),
     }
 }

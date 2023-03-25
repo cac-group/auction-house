@@ -33,5 +33,9 @@ pub enum ContractError {
     #[error("Buyout price not met")]
     PriceNotMet,
 
+    #[error("Only winner or owner can close the auction")]
+    CannotClose,
 
+    #[error("Auction already finished, can't bid or buyout anymore")]
+    AuctionFinished,
 }
