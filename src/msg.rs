@@ -45,16 +45,17 @@ pub enum ExecMsg {
         old_owner: Addr,
     },
     CreateAuction {
-        nft: String,
+        nft_id: String,
+        nft_contract: String,
         min_bid: u64,
         buyout: u64,
         denom: String,
     },
     Bid {
-        nft: String,
+        nft_id: String,
     },
     
     Buyout {
-        nft: String,
+        nft_id: String,
     }
 }

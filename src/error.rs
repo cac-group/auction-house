@@ -18,6 +18,9 @@ pub enum ContractError {
     #[error("Auction already exists")]
     AuctionExists,
 
+    #[error("NFT does not exist")]
+    NoNFT,
+
     #[error("No bid funds sent")]
     NoFunds,
 
@@ -29,4 +32,6 @@ pub enum ContractError {
 
     #[error("Buyout price not met")]
     PriceNotMet,
+
+
 }

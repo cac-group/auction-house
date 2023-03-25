@@ -7,7 +7,8 @@ use cosmwasm_std::{Addr, Coin, Timestamp};
 //Auction structure
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Auction {
-    pub nft: String,
+    pub nft_id: String,
+    pub nft_contract: String,
     pub current_bid: Option<Coin>,
     pub current_bidder: Option<Addr>,
     pub min_bid: Coin,

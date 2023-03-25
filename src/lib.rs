@@ -1,5 +1,7 @@
 use archway_bindings::{ArchwayQuery, ArchwayResult};
-use contract::exec::{update_rewards_address, withdraw_rewards, add_owner, remove_owner, create_auction, bid, buyout};
+use contract::exec::{
+    add_owner, bid, buyout, create_auction, remove_owner, update_rewards_address, withdraw_rewards,
+};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
@@ -45,20 +47,30 @@ pub fn execute(
             update_rewards_address(deps, info.sender, address.unwrap_or(env.contract.address))
         }
         ExecMsg::WithdrawRewards {} => withdraw_rewards(deps, info.sender),
-        ExecMsg::AddOwner { new_owner } => {
-            add_owner(deps, info.sender, new_owner)
-        },
-        ExecMsg::RemoveOwner { old_owner } => {
-            remove_owner(deps, info.sender, old_owner)
-        },
-        ExecMsg::CreateAuction { nft, min_bid, buyout, denom } => {
-            create_auction(deps, info.sender, env.block.time.seconds() ,nft, min_bid, buyout, denom)
-        },
-        ExecMsg::Bid { nft } => {
-            bid(deps, info.sender, info.funds, nft)
-        },
-        ExecMsg::Buyout { nft } => {
-            buyout(deps, info.sender, info.funds, nft)
-        }
+        ExecMsg::AddOwner { new_owner } => add_owner(deps, info.sender, new_owner),
+        ExecMsg::RemoveOwner { old_owner } => remove_owner(deps, info.sender, old_owner),
+        ExecMsg::CreateAuction {
+            nft_id,
+            nft_contract,
+            min_bid,
+            buyout,
+            denom,
+        } => create_auction(
+            deps,
+            env.clone(),
+            info.sender,
+            env.block.time.seconds(),
+            nft_id,
+            nft_contract,
+            min_bid,
+            buyout,
+            denom,
+        ),
+        ExecMsg::Bid {
+            nft_id,
+        } => bid(deps, info.sender, info.funds, nft_id),
+        ExecMsg::Buyout {
+            nft_id,
+        } => buyout(deps, info.sender, info.funds, nft_id),
     }
 }

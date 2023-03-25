@@ -15,7 +15,7 @@ pub fn instantiate(deps: DepsMut, sender: Addr) -> StdResult<Response> {
     let mut owners = OWNERS.load(deps.storage)?;
 
     owners.push(sender.clone());
-    //The instantiation of this contract will also be the initial owner of it.
+    //The instantiatior of this contract will also be the initial owner of it.
     OWNERS.save(deps.storage, &owners)?;
 
     AUCTIONS.save(deps.storage, &Vec::new())?;
@@ -88,7 +88,8 @@ pub mod query {
 
 pub mod exec {
     use archway_bindings::{ArchwayMsg, ArchwayQuery, ArchwayResult};
-    use cosmwasm_std::{coin, Addr, BankMsg, Coin, DepsMut, Response, Timestamp};
+    use cosmwasm_std::{coin, Addr, BankMsg, Coin, DepsMut, Response, Timestamp, Env, QueryRequest, WasmQuery, to_binary, WasmMsg};
+    use cw721::{OwnerOfResponse, Cw721QueryMsg, Cw721ExecuteMsg};
 
     use crate::{
         error::ContractError,
@@ -197,19 +198,29 @@ pub mod exec {
 
     pub fn create_auction(
         deps: DepsMut<ArchwayQuery>,
+        env: Env,
         sender: Addr,
         blocktime: u64,
-        nft: String,
+        nft_id: String,
+        nft_contract: String,
         min_bid: u64,
         buyout: u64,
         denom: String,
     ) -> ArchwayResult<ContractError> {
-        //TODO: Check if contract has the NFT that was sent before, we can't create an auction of the
+        
+        let query_msg: Cw721QueryMsg = Cw721QueryMsg::OwnerOf { token_id: nft_id.clone(), include_expired: None };
+        
+        let query_response: OwnerOfResponse = 
+            deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart { contract_addr: nft_contract.clone(), msg: to_binary(&query_msg)? }))?;
+
+        if query_response.owner != env.contract.address {
+            return Err(ContractError::NoNFT)
+        }
 
         let mut auctions = AUCTIONS.load(deps.storage)?;
 
-        if auctions.iter().any(|auction| auction.nft == nft) {
-            return Err(ContractError::AuctionExists);
+        if auctions.iter().any(|auction| auction.nft_id == nft_id) {
+            return Err(ContractError::AuctionExists)
         }
 
         //TODO (FOR PRODUCTION): Make a list of allowed denoms to create auctions
@@ -217,7 +228,8 @@ pub mod exec {
         let three_days = Timestamp::from_seconds(72 * 60 * 60);
         //We create an auction with a default time limit of 72h (In the future we will make this time modifiable)
         let new_auction = Auction {
-            nft,
+            nft_id,
+            nft_contract,
             current_bid: None,
             current_bidder: None,
             min_bid: coin(min_bid.into(), denom.clone()),
@@ -240,12 +252,12 @@ pub mod exec {
         deps: DepsMut<ArchwayQuery>,
         sender: Addr,
         funds: Vec<Coin>,
-        nft: String,
+        nft_id: String,
     ) -> ArchwayResult<ContractError> {
         let mut auctions = AUCTIONS.load(deps.storage)?;
 
         //We check if the auction we want to bid on exists (get the position in the auction array)
-        let auction_position = auctions.iter().position(|auction| auction.nft == nft);
+        let auction_position = auctions.iter().position(|auction| auction.nft_id == nft_id);
 
         if auction_position.is_none() {
             return Err(ContractError::NoAuction);
@@ -328,12 +340,12 @@ pub mod exec {
         deps: DepsMut<ArchwayQuery>,
         sender: Addr,
         funds: Vec<Coin>,
-        nft: String,
+        nft_id: String,
     ) -> ArchwayResult<ContractError> {
         let mut auctions = AUCTIONS.load(deps.storage)?;
 
         //We check if the auction we want to buyout exists (get the position in the auction array)
-        let auction_position = auctions.iter().position(|auction| auction.nft == nft);
+        let auction_position = auctions.iter().position(|auction| auction.nft_id == nft_id.clone());
 
         if auction_position.is_none() {
             return Err(ContractError::NoAuction);
@@ -361,7 +373,7 @@ pub mod exec {
         }
 
         //We check if there is already a bidder. If that's the case, we send his funds back because he lost the auction.
-        let resp;
+        let mut resp;
 
         if auctions[auction_position.unwrap()].current_bidder.is_some() {
             //We create the return funds message of previous bidder.
@@ -389,13 +401,19 @@ pub mod exec {
                 .add_attribute("buyer", sender.clone());
         }
 
+        // We prepare the message to send the NFT to the buyer
+
+        let send_nft_msg = Cw721ExecuteMsg::TransferNft { recipient: sender.into_string(), token_id: nft_id.clone()};
+
+        let wasm_send_nft = WasmMsg::Execute { contract_addr: auctions[auction_position.unwrap()].nft_contract.clone(), msg: to_binary(&send_nft_msg)? ,funds: vec![] };
+
+        resp = resp.add_message(wasm_send_nft);
+
         //We remove the auction from the auction from the auctions array
 
-        auctions.retain(|auction| auction.nft != nft);
+        auctions.retain(|auction| auction.nft_id != nft_id);
 
         AUCTIONS.save(deps.storage, &auctions)?;
-
-        //TODO: SEND NFT TO BUYER.
 
         Ok(resp)
     }
